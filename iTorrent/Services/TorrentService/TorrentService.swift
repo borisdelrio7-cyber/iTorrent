@@ -9,9 +9,6 @@ import Combine
 @preconcurrency import LibTorrent
 import MvvmFoundation
 import UIKit
-#if canImport(FirebaseCrashlytics)
-import FirebaseCrashlytics
-#endif
 
 extension TorrentService {
     struct TorrentUpdateModel {
@@ -129,11 +126,7 @@ extension TorrentService: SessionDelegate {
     }
 
     func torrentManager(_ manager: Session, didErrorOccur error: Error) {
-        #if canImport(FirebaseCrashlytics)
-        Crashlytics.crashlytics().record(error: error)
-        #else
         print("LibTorrent error: \(error)")
-        #endif
     }
 }
 
