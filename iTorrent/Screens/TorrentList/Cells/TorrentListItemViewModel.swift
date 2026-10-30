@@ -17,7 +17,8 @@ class TorrentListItemViewModel: BaseViewModelWith<TorrentHandle>, MvvmSelectable
 
     @Published var title: String = ""
     @Published var progressText: String = ""
-    @Published var statusText: String = ""
+    @Published var state: TorrentHandle.State = .paused
+    @Published var metricsText: String = ""
     @Published var progress: Double = 0
 
     override func prepare(with model: TorrentHandle) {
@@ -56,10 +57,19 @@ class TorrentListItemViewModel: BaseViewModelWith<TorrentHandle>, MvvmSelectable
 
 private extension TorrentListItemViewModel {
     func updateUI() {
-        let percent = "\(String(format: "%.2f", torrentHandle.snapshot.progress * 100))%"
-        title = torrentHandle.snapshot.name
-        progressText = %"\(torrentHandle.snapshot.totalWantedDone.bitrateToHumanReadable) of \(torrentHandle.snapshot.totalWanted.bitrateToHumanReadable) (\(percent))"
-        statusText = "\(torrentHandle.snapshot.stateText)"
-        progress = torrentHandle.snapshot.progress
+        let snapshot = torrentHandle.snapshot
+        let percent = "\(String(format: "%.2f", snapshot.progress * 100))%"
+        title = snapshot.name
+        progressText = %"\(snapshot.totalWantedDone.bitrateToHumanReadable) of \(snapshot.totalWanted.bitrateToHumanReadable) (\(percent))"
+        state = snapshot.friendlyState
+        switch state {
+        case .downloading:
+            metricsText = "↓ \(snapshot.downloadRate.bitrateToHumanReadable)/s · \(snapshot.timeRemains)"
+        case .seeding:
+            metricsText = "↑ \(snapshot.uploadRate.bitrateToHumanReadable)/s"
+        default:
+            metricsText = ""
+        }
+        progress = snapshot.progress
     }
 }

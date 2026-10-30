@@ -17,17 +17,27 @@ struct TorrentListItemView: MvvmSwiftUICellProtocol {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(viewModel.title)
-                .foregroundStyle(.primary)
+                .foregroundStyle(EFBTheme.primaryText)
                 .font(.subheadline.weight(.semibold))
-            VStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .leading, spacing: 2) {
                 Text(String(viewModel.progressText))
-                Text(String(viewModel.statusText))
+                    .font(EFBTheme.numbers(.footnote))
+                    .foregroundStyle(EFBTheme.secondaryText)
+                HStack(spacing: 8) {
+                    Text(viewModel.state.name)
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(viewModel.state.efbColor)
+                    if !viewModel.metricsText.isEmpty {
+                        Text(viewModel.metricsText)
+                            .font(EFBTheme.numbers(.footnote))
+                            .foregroundStyle(EFBTheme.secondaryText)
+                    }
+                }
             }
             .lineLimit(1)
             .minimumScaleFactor(0.5)
-            .foregroundStyle(.secondary)
-            .font(.footnote)
             ProgressView(value: viewModel.progress)
+                .tint(viewModel.state.efbColor)
         }
         .swipeActions {
             Button(role: .destructive) {

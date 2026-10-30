@@ -100,6 +100,7 @@
 		7CB831232D197540005F3F42 /* MessageOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CB831222D197540005F3F42 /* MessageOverlayView.swift */; };
 		7CB831252D19754A005F3F42 /* MessageOverlayView.xib in Resources */ = {isa = PBXBuildFile; fileRef = 7CB831242D19754A005F3F42 /* MessageOverlayView.xib */; };
 		7CBDBAAD2C31EF0C008C986B /* UserDefaults+AppGroup.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CBDBAAC2C31EF0C008C986B /* UserDefaults+AppGroup.swift */; };
+		3015A64D2D585F880CB6AEDC /* EFBTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39EDDD0CA46E437BAC1FE210 /* EFBTheme.swift */; };
 		7CBDBAAE2C31EF52008C986B /* UserDefaults+AppGroup.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CBDBAAC2C31EF0C008C986B /* UserDefaults+AppGroup.swift */; };
 		7CC634772E09ED88007E3EED /* UILabel+Marquee.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CC634762E09ED83007E3EED /* UILabel+Marquee.swift */; };
 		7CC7B4F93082D18A00BA5B79 /* AdaptiveArrangementView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CC7B4F83082D18A00BA5B79 /* AdaptiveArrangementView.swift */; };
@@ -401,6 +402,7 @@
 		7CB831222D197540005F3F42 /* MessageOverlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageOverlayView.swift; sourceTree = "<group>"; };
 		7CB831242D19754A005F3F42 /* MessageOverlayView.xib */ = {isa = PBXFileReference; lastKnownFileType = file.xib; path = MessageOverlayView.xib; sourceTree = "<group>"; };
 		7CBDBAAC2C31EF0C008C986B /* UserDefaults+AppGroup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UserDefaults+AppGroup.swift"; sourceTree = "<group>"; };
+		39EDDD0CA46E437BAC1FE210 /* EFBTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EFBTheme.swift; sourceTree = "<group>"; };
 		7CC634762E09ED83007E3EED /* UILabel+Marquee.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UILabel+Marquee.swift"; sourceTree = "<group>"; };
 		7CC7B4F83082D18A00BA5B79 /* AdaptiveArrangementView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdaptiveArrangementView.swift; sourceTree = "<group>"; };
 		7CC7B4FC3083A05E00BA5B79 /* ReservedAreaContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReservedAreaContainer.swift; sourceTree = "<group>"; };
@@ -1297,6 +1299,7 @@
 				7C5FBE222BBDD1B60069E5A0 /* NSUserDefaultItem.swift */,
 				7CE25BA62C24A848007B2FD7 /* CircularAnimation.swift */,
 				7CBDBAAC2C31EF0C008C986B /* UserDefaults+AppGroup.swift */,
+				39EDDD0CA46E437BAC1FE210 /* EFBTheme.swift */,
 			);
 			path = Utils;
 			sourceTree = "<group>";
@@ -1921,6 +1924,7 @@
 				7C5B73752F75C07100CC2B6C /* CompatibilityGlass.swift in Sources */,
 				D1DB718B2BD91606007F9267 /* ImageCache.swift in Sources */,
 				7CBDBAAD2C31EF0C008C986B /* UserDefaults+AppGroup.swift in Sources */,
+				3015A64D2D585F880CB6AEDC /* EFBTheme.swift in Sources */,
 				D1B1BEC92AFE25AE0030C2A4 /* TorrentTrackersViewController.swift in Sources */,
 				D1DB718D2BD9165C007F9267 /* ImageLoader.swift in Sources */,
 				7CE19BF82F7F9D05006D8352 /* MenuButtonCellViewModel.swift in Sources */,

@@ -40,19 +40,9 @@ private extension PreferencesViewModel {
         var sections: [MvvmCollectionSectionModel] = []
         defer { self.sections.send(sections) }
 
+        // EFB theme: always dark (UIUserInterfaceStyle in Info.plist) with a fixed cyan accent,
+        // so the theme and tint color pickers are gone.
         sections.append(.init(id: "appearance", header: %"preferences.appearance") {
-#if !os(visionOS)
-            PRButtonViewModel(with: .init(title: %"preferences.appearance.theme", value: preferences.$appAppearance.map(\.name).eraseToAnyPublisher(), accessories: [
-                .popUpMenu(
-                    .init(title: %"preferences.appearance.theme.action", children: [
-                        uiAction(from: .unspecified),
-                        uiAction(from: .light),
-                        uiAction(from: .dark),
-                    ]), options: .init(tintColor: .tintColor)
-                ),
-            ]))
-#endif
-            colorPickerVM
             PRButtonViewModel(with: .init(title: %"preferences.appearance.order", accessories: [.disclosureIndicator()]) { [unowned self] in
                 navigate(to: PreferencesSectionGroupingViewModel.self, by: .show)
             })
