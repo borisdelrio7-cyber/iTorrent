@@ -25,6 +25,11 @@ jobs:
       # La versión estable por defecto de la imagen xcode-27.
       XCODE_VERSION: "27.1"
       SCHEME: iTorrent
+      # xtool sólo puede registrar App Groups si inició sesión con Apple ID (xtool auth login
+      # con usuario y contraseña). Con una clave de App Store Connect el perfil sale sin grupos
+      # y iOS rechaza la app si el binario pide uno (0xe8008015). Sin grupo, lo único que se
+      # pierde es que la Live Activity no lee el color de acento elegido en la app.
+      EMBED_APP_GROUP: "false"
 
     steps:
       - name: Seleccionar Xcode ${{ env.XCODE_VERSION }}
@@ -117,15 +122,17 @@ jobs:
           APP="$RUNNER_TEMP/iTorrent.xcarchive/Products/Applications/iTorrent.app"
 
           # Las claves com.apple.security.* de estos archivos son del sandbox de macOS/visionOS;
-          # en iOS la única que importa es el App Group.
+          # en iOS la única que importa es el App Group (y sólo si EMBED_APP_GROUP=true).
           ios_entitlements() {
             python3 - "$1" "$2" <<'PY'
-          import plistlib, sys
+          import os, plistlib, sys
           src, dst = sys.argv[1], sys.argv[2]
           with open(src, "rb") as f:
               ents = plistlib.load(f)
+          group = "com.apple.security.application-groups"
+          keep_group = os.environ.get("EMBED_APP_GROUP") == "true"
           keep = {k: v for k, v in ents.items()
-                  if not k.startswith("com.apple.security.") or k == "com.apple.security.application-groups"}
+                  if not k.startswith("com.apple.security.") or (k == group and keep_group)}
           with open(dst, "wb") as f:
               plistlib.dump(keep, f)
           print(f"{src}: {sorted(keep)}")
