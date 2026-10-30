@@ -52,6 +52,43 @@ class VLCPlayerViewModel: BaseViewModelWith<VLCPlayerViewModel.Config>, Observab
         segmentedProgress = file.segmentedProgress
     }
 
+    /// Fully downloaded subtitle files from the same torrent: next to the video, or inside a
+    /// Subs/Subtitles folder (optionally with one folder per episode). When the folder has a single
+    /// video every subtitle in it belongs to it; otherwise the file name must start with the video's.
+    var externalSubtitleURLs: [URL] {
+        guard let torrentPair, let root = torrentPair.handle.snapshot.downloadPath else { return [] }
+        let files = torrentPair.handle.snapshot.files
+        guard files.indices.contains(torrentPair.fileIndex) else { return [] }
+
+        let videoPath = files[torrentPair.fileIndex].path as NSString
+        let videoDir = videoPath.deletingLastPathComponent
+        let videoName = (videoPath.lastPathComponent as NSString).deletingPathExtension.lowercased()
+        let videosInDir = files.filter {
+            let path = $0.path as NSString
+            return path.deletingLastPathComponent == videoDir && Self.videoExtensions.contains(path.pathExtension.lowercased())
+        }.count
+
+        return files.filter { file in
+            let path = file.path as NSString
+            guard file.progress >= 1, Self.subtitleExtensions.contains(path.pathExtension.lowercased()) else { return false }
+
+            let dir = path.deletingLastPathComponent
+            let matchesName = path.lastPathComponent.lowercased().hasPrefix(videoName) || videosInDir <= 1
+            if dir == videoDir { return matchesName }
+
+            let prefix = videoDir.isEmpty ? "" : videoDir + "/"
+            guard dir.hasPrefix(prefix) else { return false }
+            let inner = dir.dropFirst(prefix.count).lowercased().split(separator: "/").map(String.init)
+            guard let folder = inner.first, Self.subtitleFolders.contains(folder) else { return false }
+            return matchesName || inner.dropFirst().contains(videoName)
+        }
+        .map { root.appending(path: $0.path) }
+    }
+
+    private static let subtitleExtensions: Set<String> = ["srt", "ass", "ssa", "vtt", "sub", "smi"]
+    private static let subtitleFolders: Set<String> = ["sub", "subs", "subtitles", "subtitulos", "subtítulos"]
+    private static let videoExtensions: Set<String> = ["mkv", "mp4", "m4v", "avi", "mov", "webm", "ts", "m2ts", "wmv", "flv", "mpg", "mpeg"]
+
     static func validateURL(_ url: URL) -> Bool {
         guard url.isFileURL else { return false }
         guard url.isFileURL, (try? url.checkResourceIsReachable()) == true else { return false }

@@ -18,17 +18,32 @@ struct TracksMenuView: View {
     @Binding var selectedTrack: Track?
     let title: LocalizedStringKey
     let systemImage: String
+    /// When set, adds an option that turns this kind of track off (used for subtitles).
+    var offTitle: LocalizedStringKey?
 
     var body: some View {
         Menu {
             Section {
-                ForEach(tracks) { track in
-                    Toggle(track.title, isOn: .init(get: {
+                if let offTitle {
+                    Toggle(offTitle, isOn: .init(get: {
+                        selectedTrack == nil
+                    }, set: { value in
+                        guard value else { return }
+                        selectedTrack = nil
+                    }))
+                }
+                ForEach(Array(tracks.enumerated()), id: \.element.id) { index, track in
+                    Toggle(isOn: .init(get: {
                         selectedTrack?.id == track.id
                     }, set: { value in
                         guard value else { return }
                         selectedTrack = track
-                    }))
+                    })) {
+                        Text(menuTitle(for: track, at: index))
+                        if let details = track.menuDetails {
+                            Text(details)
+                        }
+                    }
                 }
             } header: {
                 Text(title)
@@ -40,6 +55,14 @@ struct TracksMenuView: View {
         .labelStyle(.iconOnly)
         .imageScale(.medium)
         .accessibilityLabel(title)
+        .disabled(tracks.isEmpty)
+    }
+
+    /// Two tracks can share language and title (e.g. two English subtitles), so number them.
+    private func menuTitle(for track: Track, at index: Int) -> String {
+        let title = track.menuTitle
+        let isRepeated = tracks.contains { $0.id != track.id && $0.menuTitle == title }
+        return isRepeated ? "\(title) (\(index + 1))" : title
     }
 }
 
@@ -82,16 +105,87 @@ private extension Float {
 }
 
 private extension Track {
-    var title: String {
-        [trackDescription ?? name, (localizedLanguageName ?? language).map { "[\($0)]" }]
-            .compactMap { $0 }
-            .joined(separator: " - ")
+    /// Language in the user's language plus the file's own track title,
+    /// e.g. "Español — Latino" or "English — SDH". Falls back to VLC's name.
+    var menuTitle: String {
+        let languageName = localizedLanguageName
+        var parts = [String]()
+        if let languageName { parts.append(languageName) }
+        if let description = trackDescription?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !description.isEmpty,
+           description.caseInsensitiveCompare(languageName ?? "") != .orderedSame,
+           description.caseInsensitiveCompare(language ?? "") != .orderedSame
+        {
+            parts.append(description)
+        }
+        return parts.isEmpty ? name : parts.joined(separator: " — ")
+    }
+
+    /// Technical identification shown under the title, e.g. "AC3 · 5.1" or "SRT".
+    var menuDetails: String? {
+        var parts = [String]()
+        if let friendlyCodec { parts.append(friendlyCodec) }
+        if type == .audio, let channels, channels > 0 { parts.append(Self.channelLayout(channels)) }
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }
 
     var localizedLanguageName: String? {
-        guard let language else { return nil }
-        return Locale(identifier: "en").localizedString(forLanguageCode: language)
+        guard let code = language?.trimmingCharacters(in: .whitespaces).lowercased(),
+              !code.isEmpty, !["und", "unk", "zxx"].contains(code)
+        else { return nil }
+
+        // Containers use ISO 639-2 codes; a few have a "bibliographic" variant ICU doesn't map.
+        let identifier = Self.bibliographicLanguageCodes[code] ?? code
+        guard let name = Locale.current.localizedString(forIdentifier: identifier),
+              name.lowercased() != identifier
+        else { return code.uppercased() }
+        return name.prefix(1).uppercased() + name.dropFirst()
     }
+
+    var friendlyCodec: String? {
+        guard let fourcc = codecString?.trimmingCharacters(in: .whitespaces).lowercased(), !fourcc.isEmpty
+        else { return nil }
+
+        switch fourcc {
+        case "mp4a": return "AAC"
+        case "a52": return "AC3"
+        case "eac3": return "E-AC3"
+        case "dts": return "DTS"
+        case "trhd", "mlp": return "TrueHD"
+        case "opus": return "Opus"
+        case "flac": return "FLAC"
+        case "mpga", "mp3": return "MP3"
+        case "vorb": return "Vorbis"
+        case "alac": return "ALAC"
+        case "subt": return "SRT"
+        case "ssa": return "ASS"
+        case "tx3g": return "TX3G"
+        case "wvtt", "webv": return "WebVTT"
+        case "spu": return "VobSub"
+        case "dvbs": return "DVB"
+        case "bdpg": return "PGS"
+        case "ttml": return "TTML"
+        default:
+            let pcm = ["s16", "s24", "s32", "f32", "fl32", "araw"]
+            return pcm.contains { fourcc.hasPrefix($0) } ? "PCM" : fourcc.uppercased()
+        }
+    }
+
+    static func channelLayout(_ channels: Int) -> String {
+        switch channels {
+        case 1: "Mono"
+        case 2: "2.0"
+        case 6: "5.1"
+        case 8: "7.1"
+        default: "\(channels) ch"
+        }
+    }
+
+    static let bibliographicLanguageCodes: [String: String] = [
+        "alb": "sq", "arm": "hy", "baq": "eu", "bur": "my", "chi": "zh", "cze": "cs", "dut": "nl",
+        "fre": "fr", "geo": "ka", "ger": "de", "gre": "el", "ice": "is", "mac": "mk", "mao": "mi",
+        "may": "ms", "per": "fa", "rum": "ro", "slo": "sk", "tib": "bo", "wel": "cy",
+    ]
 }
 
 class VLCPlayerViewController: BaseHostingController<VLCPlayerViewController.Body>, MvvmViewControllerProtocol {
@@ -530,7 +624,8 @@ private extension VLCPlayerViewController.VLCPlayerView {
                     tracks: textTracks,
                     selectedTrack: $selectedTextTrack,
                     title: "Subtitles",
-                    systemImage: "text.alignleft"
+                    systemImage: "text.alignleft",
+                    offTitle: "Off"
                 )
             }
             .padding(.horizontal)
@@ -625,6 +720,10 @@ private extension VLCPlayerViewController.VLCPlayerView {
 
         do {
             let media = try Media(url: viewModel.url)
+            for subtitle in viewModel.externalSubtitleURLs {
+                // Low priority: listed in the menu, but not forced on over the file's own tracks.
+                try? media.addSlave(from: subtitle, type: .subtitle, priority: 0)
+            }
             if let metadata = try? await media.parse(timeout: .seconds(1)), let duration = metadata.duration {
                 updateMediaTimeDuration(duration.timeInterval)
                 updateNowPlaying(duration: duration.timeInterval)
@@ -730,10 +829,9 @@ private extension VLCPlayerViewController.VLCPlayerView {
             selectedAudioTrack = audioTracks.first
         }
 
+        // nil means subtitles off: keep VLC's choice (or the user's) instead of forcing the first track.
         if let selected = player.selectedSubtitleTrack {
             selectedTextTrack = selected
-        } else if selectedTextTrack == nil {
-            selectedTextTrack = textTracks.first
         }
     }
 }
