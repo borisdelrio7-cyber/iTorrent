@@ -49,6 +49,15 @@ jobs:
       - name: Preparar libtorrent
         run: |
           brew install boost
+
+          # make.sh pide macOS 10.13 e iOS 15.0, pero Xcode 27 sólo acepta macOS >= 12.0.
+          # Se ajusta la copia del checkout (el submódulo no cambia); la app ya exige iOS 16.
+          sed -i '' \
+            -e 's/CMAKE_OSX_DEPLOYMENT_TARGET=10.13/CMAKE_OSX_DEPLOYMENT_TARGET=12.0/' \
+            -e 's/IPHONEOS_DEPLOYMENT_TARGET=15.0/IPHONEOS_DEPLOYMENT_TARGET=16.0/' \
+            Submodules/LibTorrent-Swift/make.sh
+          grep -E 'OSX_DEPLOYMENT_TARGET=12.0|IPHONEOS_DEPLOYMENT_TARGET=16.0' Submodules/LibTorrent-Swift/make.sh
+
           cmake --version | head -1
           xcrun --find clang
           if ! ./Submodules/LibTorrent-Swift/make.sh; then
