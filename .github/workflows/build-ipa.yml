@@ -15,13 +15,15 @@ concurrency:
 
 jobs:
   build:
-    # macos-latest hoy es macOS 26 en Apple Silicon. Cuando GitHub lo mueva a macOS 27,
-    # el paso "Seleccionar Xcode" va a fallar con un mensaje claro si 26.6 ya no está.
-    runs-on: macos-latest
+    # El código del autor usa APIs del SDK de iOS 27 (p. ej. GeometryProxy.reservedRegions,
+    # para el iPhone plegable), que sólo trae Xcode 27. macos-latest (macOS 26) sólo tiene
+    # Xcode 26.x, así que se usa la imagen xcode-27 (macOS 27). Cuando GitHub publique
+    # macos-27 como imagen estable, se puede cambiar a esa etiqueta.
+    runs-on: xcode-27
     timeout-minutes: 120
     env:
-      # La misma versión que usa el autor original en su CI (y la default de la imagen macos-26).
-      XCODE_VERSION: "26.6"
+      # La versión estable por defecto de la imagen xcode-27.
+      XCODE_VERSION: "27.1"
       SCHEME: iTorrent
 
     steps:
