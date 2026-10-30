@@ -1,0 +1,166 @@
+# Compila iTorrent sin firmar y lo empaqueta como iTorrent.ipa para instalarlo con `xtool install`.
+# xtool re-firma el .ipa con tu equipo, así que aquí no se usan certificados ni perfiles.
+
+name: Build unsigned IPA
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Si haces dos push seguidos, el build viejo se cancela en vez de gastar otra máquina macOS.
+concurrency:
+  group: build-ipa-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    # macos-latest hoy es macOS 26 en Apple Silicon. Cuando GitHub lo mueva a macOS 27,
+    # el paso "Seleccionar Xcode" va a fallar con un mensaje claro si 26.6 ya no está.
+    runs-on: macos-latest
+    timeout-minutes: 120
+    env:
+      # La misma versión que usa el autor original en su CI (y la default de la imagen macos-26).
+      XCODE_VERSION: "26.6"
+      SCHEME: iTorrent
+
+    steps:
+      - name: Seleccionar Xcode ${{ env.XCODE_VERSION }}
+        run: |
+          XCODE_APP="/Applications/Xcode_${XCODE_VERSION}.app"
+          if [ ! -d "$XCODE_APP" ]; then
+            echo "::error::Xcode ${XCODE_VERSION} no está en esta imagen. Versiones disponibles:"
+            ls -d /Applications/Xcode_*.app
+            exit 1
+          fi
+          sudo xcode-select -s "$XCODE_APP"
+          xcodebuild -version
+
+      # libtorrent, VLC, MVVMFoundation y GCDWebServer vienen como submódulos de git.
+      - name: Checkout (con submódulos)
+        uses: actions/checkout@v5
+        with:
+          submodules: recursive
+
+      # libtorrent depende de Boost; make.sh genera con CMake el proyecto Xcode de libtorrent
+      # que el workspace compila después junto con la app.
+      - name: Preparar libtorrent
+        run: |
+          brew install boost
+          ./Submodules/LibTorrent-Swift/make.sh
+
+      # Descarga los paquetes SwiftPM fijados en Package.resolved (Firebase, OpenSSL, libvlc, etc.).
+      - name: Resolver dependencias SwiftPM
+        run: |
+          xcodebuild -resolvePackageDependencies \
+            -workspace iTorrent.xcworkspace \
+            -scheme "$SCHEME" \
+            -skipPackagePluginValidation \
+            -skipMacroValidation
+
+      # archive (y no build) para obtener el .app de Release igual que una versión publicada:
+      # símbolos separados en dSYM y binario más liviano.
+      - name: Compilar Release para iPhone (sin firmar)
+        run: |
+          set -o pipefail
+          xcodebuild archive \
+            -workspace iTorrent.xcworkspace \
+            -scheme "$SCHEME" \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$RUNNER_TEMP/iTorrent.xcarchive" \
+            -skipPackagePluginValidation \
+            -skipMacroValidation \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            2>&1 | tee "$RUNNER_TEMP/xcodebuild.log"
+
+      - name: Mostrar errores de compilación
+        if: failure()
+        run: |
+          grep -nE "error:|\*\* ARCHIVE FAILED|Build input file cannot be found" "$RUNNER_TEMP/xcodebuild.log" | head -100 || true
+
+      - name: Subir log de xcodebuild
+        if: failure()
+        uses: actions/upload-artifact@v5
+        with:
+          name: xcodebuild-log
+          path: ${{ runner.temp }}/xcodebuild.log
+          retention-days: 7
+
+      # Con CODE_SIGNING_ALLOWED=NO, Xcode no escribe los entitlements en el binario.
+      # xtool decide qué capacidades registrar (App Groups, etc.) leyendo los entitlements
+      # del binario, así que sin este paso el widget y la app quedarían sin App Group.
+      # La firma "ad-hoc" (-) no usa certificado: sólo guarda hashes + entitlements,
+      # y xtool la reemplaza por tu firma real al instalar.
+      - name: Incrustar entitlements (firma ad-hoc)
+        run: |
+          APP="$RUNNER_TEMP/iTorrent.xcarchive/Products/Applications/iTorrent.app"
+
+          # Las claves com.apple.security.* de estos archivos son del sandbox de macOS/visionOS;
+          # en iOS la única que importa es el App Group.
+          ios_entitlements() {
+            python3 - "$1" "$2" <<'PY'
+          import plistlib, sys
+          src, dst = sys.argv[1], sys.argv[2]
+          with open(src, "rb") as f:
+              ents = plistlib.load(f)
+          keep = {k: v for k, v in ents.items()
+                  if not k.startswith("com.apple.security.") or k == "com.apple.security.application-groups"}
+          with open(dst, "wb") as f:
+              plistlib.dump(keep, f)
+          print(f"{src}: {sorted(keep)}")
+          PY
+          }
+          ios_entitlements iTorrent/Core/Assets/iTorrent.entitlements "$RUNNER_TEMP/app.entitlements"
+          ios_entitlements ProgressWidget/ProgressWidgetExtension.entitlements "$RUNNER_TEMP/widget.entitlements"
+
+          sign() { codesign --force --sign - --timestamp=none "$@"; }
+
+          # De adentro hacia afuera: codesign exige que el código anidado ya esté firmado.
+          find "$APP" -depth \( -name "*.framework" -o -name "*.dylib" \) -print0 |
+            while IFS= read -r -d '' item; do sign "$item"; done
+
+          for appex in "$APP"/PlugIns/*.appex; do
+            [ -e "$appex" ] || continue
+            case "$(basename "$appex")" in
+              ProgressWidgetExtension.appex) sign --entitlements "$RUNNER_TEMP/widget.entitlements" "$appex" ;;
+              *) sign "$appex" ;;
+            esac
+          done
+
+          sign --entitlements "$RUNNER_TEMP/app.entitlements" "$APP"
+          codesign -d --entitlements - --xml "$APP" 2>/dev/null | plutil -p - || true
+
+      - name: Empaquetar iTorrent.ipa
+        run: |
+          APP="$RUNNER_TEMP/iTorrent.xcarchive/Products/Applications/iTorrent.app"
+          mkdir -p "$RUNNER_TEMP/ipa/Payload"
+          cp -R "$APP" "$RUNNER_TEMP/ipa/Payload/"
+
+          # Las extensiones (widget / Live Activity) ya vienen dentro de iTorrent.app/PlugIns
+          # porque Xcode las embebe al compilar; sólo verificamos que estén.
+          if ! ls "$RUNNER_TEMP/ipa/Payload/iTorrent.app/PlugIns/"*.appex >/dev/null 2>&1; then
+            echo "::error::No hay extensiones en iTorrent.app/PlugIns"
+            exit 1
+          fi
+
+          cd "$RUNNER_TEMP/ipa"
+          zip -qry iTorrent.ipa Payload
+
+          INFO=Payload/iTorrent.app/Info.plist
+          echo "Bundle ID: $(/usr/libexec/PlistBuddy -c 'Print CFBundleIdentifier' "$INFO")"
+          echo "Versión:   $(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' "$INFO") ($(/usr/libexec/PlistBuddy -c 'Print CFBundleVersion' "$INFO"))"
+          echo "Extensiones:"; ls Payload/iTorrent.app/PlugIns
+          ls -lh iTorrent.ipa
+
+      - name: Subir iTorrent.ipa
+        uses: actions/upload-artifact@v5
+        with:
+          name: iTorrent-ipa
+          path: ${{ runner.temp }}/ipa/iTorrent.ipa
+          retention-days: 14
+          # El .ipa ya es un zip; no tiene sentido recomprimirlo.
+          compression-level: 0
