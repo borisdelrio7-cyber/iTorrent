@@ -106,6 +106,7 @@ extension TorrentService: SessionDelegate {
     func torrentManager(_ manager: Session, didAddTorrent torrent: TorrentHandle) {
         torrent.prepareToAdd(into: self)
         torrents[torrent.snapshot.infoHashes] = torrent
+        exportMagnet(of: torrent)
 
         // Add trackers from torrent list service if needed
         if preferences.isTrackersAutoaddingEnabled, !torrent.isPrivate {
@@ -131,6 +132,21 @@ extension TorrentService: SessionDelegate {
 }
 
 private extension TorrentService {
+    /// Leaves each torrent's magnet link in `Documents/.magnets/<info-hash>.magnet` so Video Plus
+    /// can offer "download again" after the files are deleted. Written once and kept on purpose
+    /// when the torrent is removed. Hidden folder: Files and MemorySpaceManager skip it.
+    func exportMagnet(of torrent: TorrentHandle) {
+        let snapshot = torrent.snapshot
+        let hashes = snapshot.infoHashes
+        let hash = (hashes.hasV1 ? hashes.v1.hex : hashes.v2.hex).lowercased()
+        let folder = Self.downloadPath.appending(path: ".magnets", directoryHint: .isDirectory)
+        let file = folder.appending(path: "\(hash).magnet")
+        guard !FileManager.default.fileExists(atPath: file.path()) else { return }
+
+        try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        try? Data(snapshot.magnetLink.utf8).write(to: file, options: .atomic)
+    }
+
     func setup() {
         // Resolve storage scopes, so Core will be able to restore states
         resolveStorageScopes()
@@ -139,6 +155,7 @@ private extension TorrentService {
         session.pause()
         torrents = session.torrentsMap.mapValues { torrent in
             torrent.prepareToAdd(into: self)
+            exportMagnet(of: torrent)
             return torrent
         }
         // After initialization is done we could resume core
