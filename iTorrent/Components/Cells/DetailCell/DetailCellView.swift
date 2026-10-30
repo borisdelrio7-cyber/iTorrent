@@ -18,10 +18,11 @@ struct DetailCellView: MvvmSwiftUICellProtocol {
             HStack {
                 Text(viewModel.title)
                     .fontWeight(viewModel.isBold ? .semibold : .regular)
-                    .foregroundStyle(viewModel.isEnabled ? Color.primary : Color.secondary)
+                    .foregroundStyle(viewModel.isEnabled ? EFBTheme.primaryText : EFBTheme.secondaryText)
                 Spacer(minLength: viewModel.spacer)
                 Text(LocalizedStringKey(viewModel.detail))
-                    .tintAwareForegroundStyle()
+                    .font(viewModel.detail.contains(where: \.isNumber) ? EFBTheme.numbers(.body) : nil)
+                    .tintAwareForegroundStyle(viewModel.detailColor)
                     .multilineTextAlignment(.trailing)
             }
             .systemMinimumHeight()

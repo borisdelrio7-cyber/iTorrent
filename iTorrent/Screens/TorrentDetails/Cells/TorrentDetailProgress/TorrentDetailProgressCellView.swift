@@ -19,7 +19,7 @@ struct TorrentDetailProgressCellView: MvvmSwiftUICellProtocol {
             VStack {
                 ProgressView(value: viewModel.progress)
 //                    .foregroundStyle(Color(PreferencesStorage.shared.tintColor))
-                    .foregroundStyle(Color(.secondaryAccent))
+                    .tint(EFBTheme.green)
                     .multilineTextAlignment(.trailing)
                 SegmentedProgressView(progress: $viewModel.segmentedProgress)
                     .frame(height: 4)

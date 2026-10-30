@@ -245,9 +245,12 @@ private extension TorrentDetailsViewModel {
         storageError = friendlyState == .storageError
 
         stateModel.detail = friendlyState.name
+        stateModel.detailColor = friendlyState.efbColor
 
         downloadModel.detail = "\(snapshot.downloadRate.bitrateToHumanReadable)/s"
+        downloadModel.detailColor = EFBTheme.green
         uploadModel.detail = "\(snapshot.uploadRate.bitrateToHumanReadable)/s"
+        uploadModel.detailColor = EFBTheme.cyan
         timeLeftModel.detail = snapshot.timeRemains
 
         sequentialModel.isOn = snapshot.isSequential

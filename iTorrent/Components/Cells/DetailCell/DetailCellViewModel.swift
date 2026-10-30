@@ -7,6 +7,7 @@
 
 import Combine
 import MvvmFoundation
+import SwiftUI
 
 // extension DetailCellViewModel {
 //    struct Config {
@@ -21,6 +22,8 @@ class DetailCellViewModel: BaseViewModel, ObservableObject, MvvmSelectableProtoc
 
     @Published var title: String = ""
     @Published var detail: String = ""
+    /// Overrides the tint color of the value (EFB state colors).
+    @Published var detailColor: Color?
     @Published var spacer: Double = 0
     @Published var isBold: Bool = true
     @Published var isEnabled: Bool = true
